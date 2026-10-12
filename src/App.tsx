@@ -62,7 +62,7 @@ export function App() {
       {(error || mapWarning) && <div role="alert" className="map-alert">{error || mapWarning}</div>}
       {!viewer && !error && <div role="status" className="map-alert">Iniciando o visualizador 3D…</div>}
       {legendLayers.length > 0 && <div className="raster-legend-stack" role="group" aria-label="Legendas das camadas visíveis" tabIndex={0}>
-        {legendLayers.map((layer) => layer.legend && <Legend key={layer.id} {...layer.legend} visibility={visible.has(layer.id)} />)}
+        {legendLayers.map((layer) => layer.legend && <Legend key={layer.id} {...layer.legend} compact={layer.id === "ndvi"} visibility={visible.has(layer.id)} />)}
       </div>}
     </main>
   );

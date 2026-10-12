@@ -1,16 +1,18 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { LegendConfig } from "../projects/types";
 import "./Legend.css";
 
 type LegendProps = LegendConfig & {
   visibility: boolean;
+  compact?: boolean;
   formatValue?: (value: number) => string;
 };
 
-function LegendFrame({ title, image = false, children }: { title: string; image?: boolean; children: ReactNode }) {
+function LegendFrame({ title, image = false, compact = false, children }: { title: string; image?: boolean; compact?: boolean; children: ReactNode }) {
   const [mobile, setMobile] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const containerRef = useRef<HTMLElement>(null);
+  const contentId = useId();
 
   useEffect(() => {
     const query = window.matchMedia("(max-width: 760px)");
@@ -39,6 +41,27 @@ function LegendFrame({ title, image = false, children }: { title: string; image?
     };
   }, [mobile, expanded]);
 
+  if (compact) {
+    return (
+      <section ref={containerRef} className={`raster-legend raster-legend-compact${image ? " raster-legend-image" : ""}${expanded ? " is-expanded" : ""}`} aria-label={`Legenda: ${title}`}>
+        <div id={contentId} className="raster-legend-compact-content">
+          <h2 className="raster-legend-compact-title">{title}</h2>
+          {children}
+        </div>
+        <button
+          type="button"
+          className="raster-legend-chip"
+          aria-controls={contentId}
+          aria-expanded={expanded}
+          aria-label={`${expanded ? "Fechar" : "Abrir"} legenda: ${title}`}
+          onClick={() => setExpanded((current) => !current)}
+        >
+          {title}
+        </button>
+      </section>
+    );
+  }
+
   const action = expanded ? "Toque para reduzir a legenda" : "Toque para ampliar a legenda";
   return (
     <section
@@ -66,7 +89,7 @@ export function Legend(props: LegendProps) {
   if (!props.visibility) return null;
   if (props.type === "image") {
     return (
-      <LegendFrame title={props.title} image>
+      <LegendFrame title={props.title} image compact={props.compact}>
         <img src={props.imageUrl} alt={props.imageAlt} />
       </LegendFrame>
     );

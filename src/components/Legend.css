@@ -99,3 +99,82 @@
 @media (max-width: 760px) and (prefers-reduced-motion: reduce) {
   .raster-legend { transition: none; }
 }
+
+/* Compact presentation is opt-in; other external legends keep their layout. */
+.raster-legend.raster-legend-compact {
+  width: auto;
+  max-width: 96px;
+  height: auto;
+  padding: 0;
+  background: transparent;
+  color: #21372c;
+  z-index: 1;
+}
+
+.raster-legend-compact-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-height: 300px;
+  padding: 6px;
+  border: 1px solid #21372c26;
+  border-radius: 6px;
+  background: #ffffffeb;
+}
+
+.raster-legend-compact-title {
+  margin: 0 0 4px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+.raster-legend.raster-legend-compact img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: max(0px, min(266px, calc(100dvh - var(--header-height) - var(--legend-bottom) - env(safe-area-inset-bottom) - 58px)));
+  object-fit: contain;
+}
+
+.raster-legend-chip { display: none; }
+
+@media (max-width: 760px) {
+  .raster-legend.raster-legend-compact {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    max-width: 88px;
+    pointer-events: none;
+    cursor: default;
+    transition: none;
+  }
+
+  .raster-legend-compact-content {
+    display: none;
+    max-height: 180px;
+    pointer-events: auto;
+  }
+
+  .raster-legend-compact.is-expanded .raster-legend-compact-content { display: flex; }
+
+  .raster-legend.raster-legend-compact img {
+    max-height: max(0px, min(146px, calc(100dvh - var(--header-height) - var(--legend-bottom) - env(safe-area-inset-bottom) - 352px)));
+  }
+
+  .raster-legend-chip {
+    display: block;
+    min-width: 56px;
+    min-height: 44px;
+    padding: 6px 10px;
+    border: 1px solid #21372c26;
+    border-radius: 16px;
+    background: #ffffffeb;
+    color: #21372c;
+    font-size: 12px;
+    font-weight: 600;
+    pointer-events: auto;
+    touch-action: manipulation;
+  }
+}
