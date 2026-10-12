@@ -40,3 +40,6 @@
 
 .layer-subsection { margin: 12px 0 7px; color: #65785b; font-size: 10px; font-weight: 650; letter-spacing: 0.04em; }
 .layer-status { margin: 0 12px 10px; font-size: 11px; line-height: 1.5; color: #735c36; }
+
+.embedded-legend-note { display: block; margin-top: 3px; color: #6c7c63; font-size: 10px; line-height: 1.4; }
+.model-navigation-hint { margin: 0 12px 10px; color: #557445; font-size: 11px; line-height: 1.5; }

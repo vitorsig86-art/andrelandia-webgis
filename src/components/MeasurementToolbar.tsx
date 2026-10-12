@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { Viewer } from "cesium";
 import { useMeasurements } from "../hooks/useMeasurements";
 import type { MeasurementTool } from "../cesium/measurementUtils";
@@ -12,6 +13,17 @@ const tools: { id: MeasurementTool; label: string; path: string; help: string }[
 
 export function MeasurementToolbar({ viewer, disabled = false }: { viewer: Viewer | null; disabled?: boolean }) {
   const measurements = useMeasurements(viewer);
+  const [clearNotice, setClearNotice] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (clearNotice === null) return;
+    const timer = window.setTimeout(() => setClearNotice(null), 2500);
+    return () => window.clearTimeout(timer);
+  }, [clearNotice]);
+
+  const message = measurements.message === "Medições removidas."
+    ? clearNotice !== null ? measurements.message : ""
+    : measurements.message;
   const unavailable = disabled || !measurements.ready || !viewer || viewer.isDestroyed();
   const selected = tools.find((tool) => tool.id === measurements.active);
   return (
@@ -20,17 +32,17 @@ export function MeasurementToolbar({ viewer, disabled = false }: { viewer: Viewe
         {tools.map((tool) => <button key={tool.id} type="button" title={tool.label} aria-label={tool.label} aria-pressed={measurements.active === tool.id} disabled={unavailable} onClick={() => measurements.select(tool.id)}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d={tool.path} /></svg>
         </button>)}
-        <button type="button" title="Limpar medições" aria-label="Limpar medições" disabled={unavailable} onClick={measurements.clear}>
+        <button type="button" title="Limpar medições" aria-label="Limpar medições" disabled={unavailable} onClick={() => { measurements.clear(); setClearNotice(Date.now()); }}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7m4-7v7" /></svg>
         </button>
       </div>
-      {(selected || measurements.message || measurements.result) && <div className="measurement-readout">
+      {(selected || message || measurements.result) && <div className="measurement-readout">
         {selected && <><strong>{selected.label}</strong><p>{selected.help} Esc cancela.</p></>}
         {measurements.result && <output>{measurements.result}</output>}
-        <p className="measurement-message" role="status">{measurements.message}</p>
+        <p className="measurement-message" role="status">{message}</p>
         {measurements.pointCount > 0 && <span>{measurements.pointCount} ponto(s) · </span>}
-        <span>{measurements.completed} medição(ões)</span>
-        <small>Altitudes elipsoidais (m). Área horizontal geográfica, sem relevo.</small>
+        {measurements.completed > 0 && <span>{measurements.completed} medição(ões)</span>}
+        {(selected || measurements.result || measurements.completed > 0) && <small>Altitudes elipsoidais (m). Área horizontal geográfica, sem relevo.</small>}
         {selected && <div className="measurement-actions">
           {(selected.id === "distance" || selected.id === "area") && <button type="button" onClick={measurements.finish} disabled={unavailable}>Finalizar</button>}
           <button type="button" onClick={measurements.cancel}>Cancelar</button>

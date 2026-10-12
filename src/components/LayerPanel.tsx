@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { LayerStatus, ProjectConfig, ProjectLayerConfig } from "../projects/types";
 import "./LayerPanel.css";
 
@@ -23,6 +24,14 @@ export function getWorkspaceSections(layers: ProjectLayerConfig[]) {
 }
 
 export function LayerPanel({ project, statuses, visible, rasterOpacities, onOpacityChange, onToggle, onClose }: Props) {
+  const [modelHint, setModelHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (modelHint === null) return;
+    const timer = window.setTimeout(() => setModelHint(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [modelHint]);
+
   return (
     <>
       <div className="panel-heading workspace-project">
@@ -45,7 +54,10 @@ export function LayerPanel({ project, statuses, visible, rasterOpacities, onOpac
                   {layer.subsection && layer.subsection !== section.layers[index - 1]?.subsection && <h4 className="layer-subsection">{layer.subsection}</h4>}
                   <div className={`layer-card ${enabled ? "is-active" : ""} ${isModel ? "model-layer-card" : ""}`}>
                     <label className="layer-toggle">
-                      <input type="checkbox" checked={enabled} onChange={() => onToggle(layer.id)} />
+                      <input type="checkbox" checked={enabled} onChange={() => {
+                        if (isModel) setModelHint(enabled ? null : layer.id);
+                        onToggle(layer.id);
+                      }} />
                       {isModel && <span className="model-layer-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
                           <path d="m12 2 9 5v10l-9 5-9-5V7Z M3 7l9 5 9-5 M12 12v10" />
@@ -54,8 +66,10 @@ export function LayerPanel({ project, statuses, visible, rasterOpacities, onOpac
                       <span className="layer-copy">
                         <strong>{layer.name}</strong>
                         {isModel && <small>Visualização tridimensional</small>}
+                        {layer.legendMode === "embedded" && <small className="embedded-legend-note">Legenda incorporada ao mapa</small>}
                       </span>
                     </label>
+                    {enabled && isModel && modelHint === layer.id && <p className="model-navigation-hint" role="status">Use o mouse ou gestos de toque para girar, inclinar e aproximar a vista.</p>}
                     {enabled && statuses[layer.id] === "loading" && <p className="layer-status" role="status">Carregando…</p>}
                     {enabled && statuses[layer.id] === "error" && <p className="layer-status" role="status">{layer.optional ? "Arquivo regional pendente ou indisponível." : layer.source.format === "3d-tiles" ? "Modelo indisponível. Verifique o token 3D e o acesso ao asset." : "Camada indisponível. Verifique a fonte e a conexão."} Desative e ative para tentar novamente.</p>}
                     {(layer.source.format === "tms" || layer.source.format === "xyz" || layer.opacityControl) && enabled && <div className="layer-opacity">
