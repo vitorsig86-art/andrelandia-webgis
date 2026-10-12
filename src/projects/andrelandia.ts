@@ -97,7 +97,16 @@ export const andrelandiaProject: ProjectConfig = {
     raster("dsm", "Modelo Digital da Superfície", surveyBounds, 11, 20),
     raster("slope", "Declividade", surveyBounds, 11, 20),
     raster("aspect", "Orientação Solar", surveyBounds, 11, 20),
-    raster("ndvi", "NDVI", surveyBounds, 11, 20),
+    {
+      ...raster("ndvi", "NDVI", surveyBounds, 11, 20),
+      legendMode: "external",
+      legend: {
+        type: "image",
+        title: "NDVI",
+        imageUrl: "/legends/ndvi_legend.png",
+        imageAlt: "Escala numérica do NDVI: 0.95, 0.75, 0.50, 0.25, 0.00, -0.17",
+      },
+    },
     { ...vector("propertyArea", "Área do imóvel", { ...polygon("#FF0000", 0.01, 4), zIndex: 20 }, [
       field("ENCLOSED_AREA", "Área", { unit: "ha", decimals: 3 }),
       field("PERIMETER", "Perímetro", { unit: "km", decimals: 3 }),
