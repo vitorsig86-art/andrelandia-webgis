@@ -7,14 +7,20 @@ export function registerVectorPopup(entity: Entity, config: VectorPopupConfig): 
   configurations.set(entity, config);
 }
 
+export function isPerimeterPopup(entity: Entity | undefined): boolean {
+  return Boolean(entity && configurations.get(entity)?.hitTarget === "perimeter");
+}
+
 // Ground geometry draw order is not consistently reflected in Scene.pick.
 // Resolve overlapping configured vectors by their draw priority, leaving
 // measurement and other non-vector selection targets untouched.
-export function resolveVectorPopupSelection(current: Entity | undefined, candidates: Entity[], time = JulianDate.now()): Entity | undefined {
-  if (!current || !configurations.has(current)) return current;
+export function resolveVectorPopupSelection(current: Entity | undefined, candidates: Entity[], time = JulianDate.now(), nearbyPerimeters: Entity[] = []): Entity | undefined {
+  if (current && !configurations.has(current)) return current;
   let selected: Entity | undefined;
   let priority = -Infinity;
-  for (const candidate of [current, ...candidates]) {
+  for (const candidate of [current, ...candidates, ...nearbyPerimeters.filter(isPerimeterPopup)]) {
+    if (!candidate || (!current && !isPerimeterPopup(candidate))) continue;
+    if (isPerimeterPopup(candidate) && !candidate.polyline) continue;
     if (!configurations.has(candidate) || !candidate.isShowing) continue;
     const graphics = candidate.polyline ?? candidate.polygon;
     const material = graphics?.material;
@@ -25,7 +31,7 @@ export function resolveVectorPopupSelection(current: Entity | undefined, candida
       priority = zIndex;
     }
   }
-  return selected ?? current;
+  return selected ?? (isPerimeterPopup(current) ? undefined : current);
 }
 
 function clean(value: unknown): string {
@@ -45,7 +51,7 @@ function numeric(value: unknown): { value: number; unit?: string } | null {
 const unitFactors: Record<string, number> = { m: 1, km: 1000, ha: 10000, "km²": 1000000 };
 
 export function readVectorPopup(entity: Entity | undefined, time = JulianDate.now()) {
-  if (!entity || !entity.isShowing || !entity.properties) return null;
+  if (!entity || !entity.isShowing || !entity.properties || (isPerimeterPopup(entity) && !entity.polyline)) return null;
   const properties: Record<string, unknown> = entity.properties.getValue(time) ?? {};
   const config = configurations.get(entity);
   const titleValue = config?.titleProperty ? properties[config.titleProperty] : undefined;

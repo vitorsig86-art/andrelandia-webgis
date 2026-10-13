@@ -86,6 +86,83 @@ async function main() {
     assert.equal(polygons[0].polygon.material.color.getValue(at).alpha, 0.175);
     loader.setVectorOpacity(ds, 1); assert.equal(polygons[0].polygon.material.color.getValue(at).alpha, 0.35);
   }
+
+  // Boundary-only popups reuse the existing line and the polygon's properties.
+  const boundaryDefinition = {
+    ...definition, id: "boundary-fixture",
+    source: { ...definition.source, popup: { title: "Área do imóvel", hitTarget: "perimeter", fields: [{ property: "category", label: "Identificação" }] } },
+  };
+  const boundarySource = await loader.loadLayer(boundaryDefinition);
+  const boundaryPopup = vectorLoad("src/cesium/vectorPopup.ts");
+  const boundaryFill = boundarySource.entities.values.find(e => e.polygon);
+  const boundaryLine = boundarySource.entities.values.find(e => e.parent === boundaryFill);
+  assert.equal(boundarySource.entities.values.length, ds.entities.values.length, "No duplicate perimeter geometry");
+  assert.equal(boundaryLine.polyline.width.getValue(at), helpers[0].polyline.width.getValue(at));
+  assert.equal(boundaryFill.polygon.material.color.getValue(at).alpha, 0.35, "Fill preserved");
+  assert.equal(boundaryPopup.readVectorPopup(boundaryFill, at), null, "Fill cannot open the popup, including selection-change updates");
+  assert.equal(boundaryPopup.resolveVectorPopupSelection(boundaryFill, [boundaryFill], at), undefined, "Interior-only hit rejected");
+  assert.equal(boundaryPopup.resolveVectorPopupSelection(boundaryFill, [boundaryFill, boundaryLine], at), boundaryLine, "Fill-first pick resolves to existing outline");
+  assert.equal(boundaryPopup.resolveVectorPopupSelection(boundaryLine, [boundaryLine, boundaryFill], at), boundaryLine);
+  assert.equal(boundaryPopup.resolveVectorPopupSelection(boundaryFill, [boundaryFill], at, [boundaryLine]), boundaryLine, "Touch tolerance can find a nearby line");
+  assert.equal(boundaryPopup.resolveVectorPopupSelection(undefined, [], at, [boundaryLine]), boundaryLine, "Touch just outside property can select its perimeter");
+  assert.equal(boundaryPopup.resolveVectorPopupSelection(undefined, [], at, [boundaryFill]), undefined);
+  assert.equal(boundaryPopup.resolveVectorPopupSelection(measurement, [boundaryLine], at, [boundaryLine]), measurement, "Measurement selection never intercepted");
+  assert.equal(boundaryPopup.resolveVectorPopupSelection(lines[1], [lines[1], boundaryFill], at), lines[1], "Other popup unaffected by interior");
+  assert.equal(boundaryPopup.readVectorPopup(boundaryLine, at).title, "Área do imóvel");
+  assert.equal(boundaryPopup.readVectorPopup(boundaryLine, at).fields[0].value, "B", "Current property attributes preserved");
+  boundaryLine.show = false;
+  assert.equal(boundaryPopup.resolveVectorPopupSelection(boundaryFill, [boundaryLine], at), undefined, "Hidden line not selectable");
+  boundaryLine.show = true;
+  loader.setVectorOpacity(boundarySource, 0);
+  assert.equal(boundaryPopup.resolveVectorPopupSelection(boundaryFill, [boundaryLine], at), undefined, "Invisible line not selectable");
+  loader.setVectorOpacity(boundarySource, 1);
+
+  // Exercise actual component listeners without replacing native Cesium handlers.
+  let popupState = null, componentEffect;
+  const popupReact = {
+    useState: initial => [initial, value => { if (initial === null && typeof value === "function") popupState = value(popupState); }],
+    useRef: value => ({ current: value }), useEffect: callback => { componentEffect = callback; }, useLayoutEffect() {},
+  };
+  const componentExports = {};
+  const componentCode = ts.transpileModule(fs.readFileSync(path.join(root, "src/components/VectorPopup.tsx"), "utf8"), {
+    fileName: "VectorPopup.tsx", compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText;
+  vm.runInNewContext(componentCode, { exports: componentExports, require: name => ({
+    react: popupReact, "react/jsx-runtime": {}, cesium,
+    "../cesium/vectorPopup": boundaryPopup, "./popupPosition": {}, "./VectorPopup.css": {},
+  })[name] });
+  const clickListeners = new Map();
+  let selectedEntity, exactHits = [], nearHits = [], pickSizes = [];
+  const popupViewer = {
+    isDestroyed: () => false,
+    canvas: { addEventListener: (type, fn) => clickListeners.set(type, fn), removeEventListener: type => clickListeners.delete(type),
+      getBoundingClientRect: () => ({ left: 20, top: 30 }) },
+    clock: { currentTime: at, onTick: new cesium.Event() }, selectedEntityChanged: new cesium.Event(),
+    scene: { drillPick: (point, limit, width, height) => {
+      assert.equal(point.x, 80); assert.equal(point.y, 70); assert.equal(width, height);
+      pickSizes.push(width); return (width ? nearHits : exactHits).map(id => ({ id }));
+    } },
+    get selectedEntity() { return selectedEntity; },
+    set selectedEntity(value) { selectedEntity = value; this.selectedEntityChanged.raiseEvent(value); },
+  };
+  componentExports.VectorPopup({ viewer: popupViewer });
+  const disposePopup = componentEffect();
+  const pointer = pointerType => clickListeners.get("pointerdown")({ pointerType, clientX: 100, clientY: 100 });
+  const click = () => clickListeners.get("click")({ clientX: 100, clientY: 100 });
+  pointer("mouse"); popupViewer.selectedEntity = boundaryFill;
+  exactHits = [boundaryFill]; nearHits = [boundaryFill]; click();
+  assert.equal(popupViewer.selectedEntity, undefined); assert.equal(popupState, null);
+  popupViewer.selectedEntity = boundaryFill; nearHits = [boundaryFill, boundaryLine]; click();
+  assert.equal(popupViewer.selectedEntity, boundaryLine); assert.equal(popupState.title, "Área do imóvel");
+  assert.equal(pickSizes.at(-1), 7, "Desktop small GPU pick rectangle");
+  pointer("touch"); popupViewer.selectedEntity = undefined; click();
+  assert.equal(popupViewer.selectedEntity, boundaryLine); assert.equal(pickSizes.at(-1), 21, "Touch tolerance without widening rendered line");
+  popupViewer.selectedEntity = lines[1]; exactHits = [lines[1], boundaryFill]; pickSizes = []; click();
+  assert.equal(popupViewer.selectedEntity, lines[1]); assert.equal(pickSizes.length, 1, "No widened hit area for other popups");
+  popupViewer.selectedEntity = measurement; pickSizes = []; click(); assert.equal(pickSizes.length, 0);
+  disposePopup(); assert.equal(clickListeners.size, 0); assert.equal(popupViewer.clock.onTick.numberOfListeners, 0);
+  assert.equal(popupViewer.selectedEntityChanged.numberOfListeners, 0);
+
   const sources = new cesium.DataSourceCollection(); await sources.add(ds);
   loader.removeLayer({ isDestroyed: () => false, dataSources: sources }, ds);
   assert.equal(sources.length, 0); assert.equal(ds.entities.values.length, 0);

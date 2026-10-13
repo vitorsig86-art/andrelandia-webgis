@@ -52,10 +52,10 @@ function raster(id: keyof typeof RASTER_DIRECTORIES, name: string, bounds: Geogr
     source: { format: "tms", url: `${R2_BASE_URL}/${RASTER_DIRECTORIES[id]}/{z}/{x}/{reverseY}.png`, credit: "Cardeal Map", bounds, minimumLevel, maximumLevel, tileWidth: 256, tileHeight: 256, allowMissingTiles: true },
   };
 }
-function vector(id: keyof typeof GEOJSON_FILENAMES, name: string, style: GeoStyle, fields: VectorPopupConfig["fields"], subsection?: string, title = name): ProjectLayerConfig {
+function vector(id: keyof typeof GEOJSON_FILENAMES, name: string, style: GeoStyle, fields: VectorPopupConfig["fields"], subsection?: string, title = name, hitTarget?: VectorPopupConfig["hitTarget"]): ProjectLayerConfig {
   return { id, name, description: name, kind: "vector", group: subsection ? "macro" : "vector", subsection,
     defaultVisible: false, lazy: true, opacityControl: true, legendMode: "none",
-    source: { format: "geojson", url: GEOJSON_URLS[id], autoZoom: false, ignoreAltitude: true, uniqueFeatureIds: true, style, popup: { title, fields } },
+    source: { format: "geojson", url: GEOJSON_URLS[id], autoZoom: false, ignoreAltitude: true, uniqueFeatureIds: true, style, popup: { title, fields, ...(hitTarget ? { hitTarget } : {}) } },
   };
 }
 
@@ -110,7 +110,7 @@ export const andrelandiaProject: ProjectConfig = {
     { ...vector("propertyArea", "Área do imóvel", { ...polygon("#FF0000", 0.01, 4), zIndex: 20 }, [
       field("ENCLOSED_AREA", "Área", { unit: "ha", decimals: 3 }),
       field("PERIMETER", "Perímetro", { unit: "km", decimals: 3 }),
-    ]), defaultVisible: true },
+    ], undefined, "Área do imóvel", "perimeter"), defaultVisible: true },
     vector("contours", "Curvas de nível 2 m", contourStyle(1), elevationFields),
     vector("drainage", "Rede de drenagem", drainageStyle, drainageFields),
     vector("basins", "Microbacias", basinStyle, basinFields, undefined, "Microbacia"),

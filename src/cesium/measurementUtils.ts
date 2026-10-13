@@ -1,4 +1,4 @@
-import { Cartesian2, Cartesian3, Cartographic, Ellipsoid, EllipsoidGeodesic, Math as CesiumMath, type Viewer } from "cesium";
+import { Cartesian2, Cartesian3, Cartographic, Cesium3DTileFeature, Cesium3DTileset, Ellipsoid, EllipsoidGeodesic, EllipsoidTerrainProvider, Matrix4, Transforms, Math as CesiumMath, type EntityCollection, type Viewer } from "cesium";
 
 export type MeasurementTool = "coordinates" | "distance" | "area" | "height";
 
@@ -28,6 +28,76 @@ export function pickMeasurementPosition(viewer: Viewer, screen: Cartesian2): Car
   } catch {
     return undefined;
   }
+}
+
+
+// Provenance belongs to each captured position, never to the currently visible layer.
+interface HeightOrigin { label: string; surface: object }
+const heightOrigins = new WeakMap<Cartesian3, HeightOrigin>();
+export function sameHeightSurface(a: Cartesian3, b: Cartesian3): boolean {
+  return heightOrigins.get(a)?.surface === heightOrigins.get(b)?.surface;
+}
+
+export function pickHeightPosition(viewer: Viewer, screen: Cartesian2, excluded: EntityCollection): Cartesian3 | undefined {
+  if (viewer.isDestroyed()) return undefined;
+  const { scene, camera } = viewer;
+  try {
+    // Exact pixel, excluding our translucent measurement overlays. Public picking APIs only.
+    const picked = scene.drillPick(screen, 16, 1, 1).find((hit) => !hit.id || !excluded.contains(hit.id));
+    const tileset = picked instanceof Cesium3DTileFeature ? picked.tileset
+      : picked?.primitive instanceof Cesium3DTileset ? picked.primitive : undefined;
+    if (!picked && !scene.globe.show) return undefined;
+    const groundLabel = viewer.terrainProvider instanceof EllipsoidTerrainProvider ? "Globo elipsoidal (sem terreno)" : "Terreno";
+    if (scene.pickPositionSupported) {
+      let position: Cartesian3 | undefined;
+      try { position = scene.pickPosition(screen); } catch { /* Fallback only without a picked object. */ }
+      if (validPosition(position)) {
+        const copy = Cartesian3.clone(position);
+        heightOrigins.set(copy, {
+          label: tileset ? "Modelo 3D Tiles · profundidade" : picked ? "Superfície da cena · profundidade" : groundLabel + " · profundidade",
+          surface: tileset ?? picked?.primitive ?? scene.globe,
+        });
+        return copy;
+      }
+    }
+    // A rendered object without usable depth must NOT be replaced by terrain underneath.
+    if (picked || !scene.globe.show) return undefined;
+    const ray = camera.getPickRay(screen);
+    const position = ray ? scene.globe.pick(ray, scene) : undefined;
+    if (!validPosition(position)) return undefined;
+    const copy = Cartesian3.clone(position);
+    heightOrigins.set(copy, { label: groundLabel + " · fallback por raio", surface: scene.globe });
+    return copy;
+  } catch {
+    return undefined;
+  }
+}
+
+export const formatHeightNumber = (value: number): string => value.toLocaleString("pt-BR", {
+  minimumFractionDigits: 2, maximumFractionDigits: 2,
+});
+
+export function decomposedHeight(points: readonly Cartesian3[]) {
+  const [a, b] = points;
+  const midpoint = Cartesian3.midpoint(a, b, new Cartesian3());
+  // Build axes on the geodetic surface, then translate to the spatial midpoint.
+  const surfaceOrigin = Ellipsoid.WGS84.scaleToGeodeticSurface(midpoint, new Cartesian3());
+  const frame = Transforms.eastNorthUpToFixedFrame(surfaceOrigin, Ellipsoid.WGS84);
+  Matrix4.setTranslation(frame, midpoint, frame);
+  const inverse = Matrix4.inverseTransformation(frame, new Matrix4());
+  const localA = Matrix4.multiplyByPoint(inverse, a, new Cartesian3());
+  const localB = Matrix4.multiplyByPoint(inverse, b, new Cartesian3());
+  const vector = Cartesian3.subtract(localB, localA, new Cartesian3());
+  const horizontal = Math.hypot(vector.x, vector.y);
+  // Limit this tangent-plane approximation to local measurements.
+  if (Cartesian3.distance(a, b) > 10000) throw new Error("Use diferença de cota em trechos locais de até 10 km.");
+  const cornerLocal = new Cartesian3(localB.x, localB.y, localA.z);
+  const corner = Matrix4.multiplyByPoint(frame, cornerLocal, new Cartesian3());
+  const { altitudeA, altitudeB, delta } = elevationDifference(points);
+  const spatial = Cartesian3.distance(a, b);
+  const angle = spatial < 1e-6 ? null : CesiumMath.toDegrees(Math.atan2(vector.z, horizontal));
+  const slope = horizontal < 0.001 ? null : 100 * delta / horizontal;
+  return { altitudeA, altitudeB, delta, horizontal, spatial, angle, slope, verticalLocal: vector.z, corner, frame, localA, vector };
 }
 
 export function distance3D(points: readonly Cartesian3[]): number {
@@ -135,7 +205,15 @@ export function measurementText(tool: MeasurementTool, points: readonly Cartesia
   }
   if (tool === "distance") return `Distância 3D: ${formatDistance(distance3D(points))}`;
   if (tool === "area") return points.length < 3 ? "Área: selecione pelo menos 3 pontos" : `Área horizontal: ${formatArea(geographicArea(points))}`;
-  if (points.length < 2) return `Cota A: ${Cartographic.fromCartesian(points[0]).height.toFixed(2)} m`;
-  const { altitudeA, altitudeB, delta } = elevationDifference(points);
-  return `Cota A: ${altitudeA.toFixed(2)} m\nCota B: ${altitudeB.toFixed(2)} m\nΔZ (B − A): ${delta.toFixed(2)} m`;
+  if (points.length < 2) return `Cota A: ${formatHeightNumber(Cartographic.fromCartesian(points[0]).height)} m\nOrigem A: ${heightOrigins.get(points[0])?.label ?? "Não registrada"}`;
+  const { altitudeA, altitudeB, delta, horizontal, spatial, angle, slope } = decomposedHeight(points);
+  return `Cota A: ${formatHeightNumber(altitudeA)} m
+Cota B: ${formatHeightNumber(altitudeB)} m
+ΔZ (B − A): ${formatHeightNumber(delta)} m
+Distância horizontal: ${formatHeightNumber(horizontal)} m
+Distância 3D: ${formatHeightNumber(spatial)} m
+Inclinação local: ${angle === null ? "Indefinida" : formatHeightNumber(angle) + "°"}
+Declividade média: ${slope === null ? "Indefinida (horizontal < 1 mm)" : formatHeightNumber(slope) + "%"}
+Origem A: ${heightOrigins.get(points[0])?.label ?? "Não registrada"}
+Origem B: ${heightOrigins.get(points[1])?.label ?? "Não registrada"}`;
 }

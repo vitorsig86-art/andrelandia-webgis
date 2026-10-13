@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Cartesian2, Cartesian3, CustomDataSource, ScreenSpaceEventHandler, ScreenSpaceEventType, type Entity, type Viewer } from "cesium";
-import { drawMeasurement } from "../cesium/measurementGraphics";
-import { measurementText, pickMeasurementPosition, type MeasurementTool } from "../cesium/measurementUtils";
+import { drawMeasurement, layoutHeightLabels } from "../cesium/measurementGraphics";
+import { measurementText, pickMeasurementPosition, pickHeightPosition, sameHeightSurface, type MeasurementTool } from "../cesium/measurementUtils";
 
 interface MeasurementState {
   ready: boolean;
@@ -34,6 +34,10 @@ export function useMeasurements(viewer: Viewer | null) {
     let points: Cartesian3[] = [];
     let draft: Entity[] = [];
     let completed = 0;
+    let heightGraphics: Entity[] = [];
+    const removeLabelLayout = viewer.scene.postRender.addEventListener(() => {
+      if (!disposed && layoutHeightLabels(source, viewer.scene)) render();
+    });
     let lastScreen: Cartesian2 | null = null;
     let lastMove = 0;
     const pending = new Map<ReturnType<typeof setTimeout>, { point: Cartesian3; screen: Cartesian2 }>();
@@ -44,6 +48,11 @@ export function useMeasurements(viewer: Viewer | null) {
 
     function render() { if (!disposed && !viewer!.isDestroyed()) viewer!.scene.requestRender(); }
     function removeDraft() { draft.forEach((entity) => source.entities.remove(entity)); draft = []; }
+    function removeHeight() {
+      if (!heightGraphics.length) return;
+      heightGraphics.forEach((entity) => source.entities.remove(entity)); heightGraphics = [];
+      completed--;
+    }
     function clearPending() { pending.forEach((_value, timer) => clearTimeout(timer)); pending.clear(); }
     function resetDraft() { clearPending(); removeDraft(); points = []; lastScreen = null; }
     function restoreDoubleClick() {
@@ -54,12 +63,12 @@ export function useMeasurements(viewer: Viewer | null) {
       suspendedDoubleClick = false;
     }
     function cancel() {
-      resetDraft(); active = null;
+      resetDraft(); removeHeight(); active = null;
       handler.removeInputAction(ScreenSpaceEventType.LEFT_CLICK);
       handler.removeInputAction(ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
       handler.removeInputAction(ScreenSpaceEventType.MOUSE_MOVE);
       restoreDoubleClick();
-      setState((current) => ({ ...current, active: null, pointCount: 0, message: "Desenho cancelado.", result: "" }));
+      setState((current) => ({ ...current, active: null, pointCount: 0, completed, message: "Desenho cancelado.", result: "" }));
       render();
     }
     function updateDraft(hover?: Cartesian3) {
@@ -67,9 +76,13 @@ export function useMeasurements(viewer: Viewer | null) {
       if (!active || !points.length) return;
       const preview = hover && Cartesian3.distance(points[points.length - 1], hover) > 0.001 ? [...points, hover] : points;
       let text: string;
-      try { text = measurementText(active, preview); }
-      catch (error) { text = error instanceof Error ? error.message : "Área inválida."; }
-      draft = drawMeasurement(source, active, preview, text);
+      try {
+        text = measurementText(active, preview);
+        draft = drawMeasurement(source, active, preview, text);
+      } catch (error) {
+        text = error instanceof Error ? error.message : "Medição inválida.";
+        draft = drawMeasurement(source, active, points.slice(0, 1), "");
+      }
       setState((current) => ({ ...current, pointCount: points.length, result: text, message: "" }));
       render();
     }
@@ -87,7 +100,8 @@ export function useMeasurements(viewer: Viewer | null) {
       try { text = measurementText(active, points); }
       catch (error) { setState((current) => ({ ...current, message: error instanceof Error ? error.message : "Medição inválida." })); return; }
       removeDraft();
-      drawMeasurement(source, active, points, text);
+      const finalized = drawMeasurement(source, active, points, text);
+      if (active === "height") heightGraphics = finalized;
       completed++; points = []; lastScreen = null;
       setState((current) => ({ ...current, pointCount: 0, completed, result: text, message: "Medição concluída. Clique para iniciar outra." }));
       render();
@@ -96,26 +110,32 @@ export function useMeasurements(viewer: Viewer | null) {
       if (!active || disposed || viewer!.isDestroyed()) return;
       if (points.length >= 128) { setState((current) => ({ ...current, message: "Limite de 128 pontos. Finalize a medição." })); return; }
       if (points.length && Cartesian3.distance(points[points.length - 1], point) < 0.001) return;
+      if (active === "height") {
+        if (points.length && !sameHeightSurface(points[0], point)) {
+          setState((current) => ({ ...current, message: "A e B devem pertencer à mesma superfície. Reinicie para medir outra superfície." })); return;
+        }
+        if (!points.length) removeHeight();
+      }
       points.push(point); lastScreen = Cartesian2.clone(screen);
       updateDraft();
       if (active === "coordinates" || (active === "height" && points.length === 2)) finish();
     }
     function pick(screen: Cartesian2) {
-      const point = pickMeasurementPosition(viewer!, screen);
-      if (!point) setState((current) => ({ ...current, message: "Nenhuma superfície disponível. Clique no terreno ou no modelo carregado." }));
+      const point = active === "height" ? pickHeightPosition(viewer!, screen, source.entities) : pickMeasurementPosition(viewer!, screen);
+      if (!point) setState((current) => ({ ...current, message: "Não foi possível capturar a superfície. No modelo 3D, aguarde o carregamento e use profundidade compatível." }));
       return point;
     }
     function select(tool: MeasurementTool) {
       if (!ready || disposed || viewer!.isDestroyed()) return;
       if (active === tool) { cancel(); return; }
-      resetDraft(); active = tool;
+      resetDraft(); removeHeight(); active = tool;
       // Suspend only Cesium's entity-tracking double-click while drawing; restore on exit.
       if (!suspendedDoubleClick) {
         defaultDoubleClick = viewer!.screenSpaceEventHandler.getInputAction(ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
         viewer!.screenSpaceEventHandler.removeInputAction(ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
         suspendedDoubleClick = true;
       }
-      setState((current) => ({ ...current, active: tool, pointCount: 0, result: "", message: "" }));
+      setState((current) => ({ ...current, active: tool, pointCount: 0, completed, result: "", message: "" }));
       handler.setInputAction((event: { position: Cartesian2 }) => {
         viewer!.canvas.focus({ preventScroll: true });
         const point = pick(event.position);
@@ -142,8 +162,8 @@ export function useMeasurements(viewer: Viewer | null) {
       handler.setInputAction((event: { endPosition: Cartesian2 }) => {
         if (!points.length || performance.now() - lastMove < 80) return;
         lastMove = performance.now();
-        const point = pickMeasurementPosition(viewer!, event.endPosition);
-        updateDraft(point);
+        const point = active === "height" ? pickHeightPosition(viewer!, event.endPosition, source.entities) : pickMeasurementPosition(viewer!, event.endPosition);
+        updateDraft(active === "height" && point && !sameHeightSurface(points[0], point) ? undefined : point);
       }, ScreenSpaceEventType.MOUSE_MOVE);
       render();
     }
@@ -171,7 +191,7 @@ export function useMeasurements(viewer: Viewer | null) {
       if (!disposed) setState((current) => ({ ...current, message: "Não foi possível iniciar as medições." }));
     });
     return () => {
-      disposed = true; clearPending(); restoreDoubleClick();
+      disposed = true; removeLabelLayout(); clearPending(); restoreDoubleClick();
       document.removeEventListener("keydown", keydown); handler.destroy();
       if (actions.current === api) actions.current = null;
       if (originalTabIndex === null) viewer.canvas.removeAttribute("tabindex");

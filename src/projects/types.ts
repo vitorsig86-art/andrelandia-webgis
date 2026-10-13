@@ -79,6 +79,8 @@ export interface ProjectLayerConfig {
 }
 
 export interface VectorPopupConfig {
+  // Perimeter targets only the existing polygon boundary polylines, never the fill.
+  hitTarget?: "perimeter";
   title?: string;
   titleProperty?: string;
   titlePrefix?: string;

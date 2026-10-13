@@ -42,7 +42,9 @@ export function MeasurementToolbar({ viewer, disabled = false }: { viewer: Viewe
         <p className="measurement-message" role="status">{message}</p>
         {measurements.pointCount > 0 && <span>{measurements.pointCount} ponto(s) · </span>}
         {measurements.completed > 0 && <span>{measurements.completed} medição(ões)</span>}
-        {(selected || measurements.result || measurements.completed > 0) && <small>Altitudes elipsoidais (m). Área horizontal geográfica, sem relevo.</small>}
+        {(selected || measurements.result || measurements.completed > 0) && <small>{selected?.id === "height" || measurements.result.startsWith("Cota A:")
+          ? "Cotas WGS84 da cena, sem conversão de geóide; datum do modelo não confirmado. Horizontal: plano ENU no ponto médio (até 10 km). 3D: linha reta, sem acompanhar o relevo."
+          : "Altitudes elipsoidais (m). Área horizontal geográfica, sem relevo."}</small>}
         {selected && <div className="measurement-actions">
           {(selected.id === "distance" || selected.id === "area") && <button type="button" onClick={measurements.finish} disabled={unavailable}>Finalizar</button>}
           <button type="button" onClick={measurements.cancel}>Cancelar</button>

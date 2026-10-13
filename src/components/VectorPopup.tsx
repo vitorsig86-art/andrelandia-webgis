@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Cartesian2, Entity, type Viewer } from "cesium";
-import { readVectorPopup, resolveVectorPopupSelection } from "../cesium/vectorPopup";
+import { isPerimeterPopup, readVectorPopup, resolveVectorPopupSelection } from "../cesium/vectorPopup";
 import { placePopup, type ScreenPoint } from "./popupPosition";
 import "./VectorPopup.css";
 
@@ -19,14 +19,24 @@ export function VectorPopup({ viewer }: { viewer: Viewer | null }) {
       setAnchor(clickRef.current);
     };
     // Observe clicks without replacing Cesium's picking or input actions.
-    const rememberPoint = (event: PointerEvent) => { clickRef.current = { x: event.clientX, y: event.clientY }; };
+    let touch = false;
+    const rememberPoint = (event: PointerEvent) => {
+      touch = event.pointerType === "touch";
+      clickRef.current = { x: event.clientX, y: event.clientY };
+    };
     const clicked = (event: MouseEvent) => {
       clickRef.current = { x: event.clientX, y: event.clientY };
-      if (!viewer.isDestroyed() && readVectorPopup(viewer.selectedEntity, viewer.clock.currentTime)) {
+      if (!viewer.isDestroyed() && (!viewer.selectedEntity || isPerimeterPopup(viewer.selectedEntity) || readVectorPopup(viewer.selectedEntity, viewer.clock.currentTime))) {
         const bounds = canvas.getBoundingClientRect();
-        const hits = viewer.scene.drillPick(new Cartesian2(event.clientX - bounds.left, event.clientY - bounds.top));
-        const entities = hits.map(hit => hit.id).filter((id): id is Entity => id instanceof Entity);
-        const selected = resolveVectorPopupSelection(viewer.selectedEntity, entities, viewer.clock.currentTime);
+        const point = new Cartesian2(event.clientX - bounds.left, event.clientY - bounds.top);
+        const entitiesAt = (size?: number) => viewer.scene.drillPick(point, undefined, size, size)
+          .map(hit => hit.id).filter((id): id is Entity => id instanceof Entity);
+        const entities = entitiesAt();
+        // GPU picking follows the rendered ground line in oblique 3D, including its
+        // clamping. Enlarge only the hit rectangle, never the visual line width.
+        // Keep nearby targets exclusive to perimeter-configured popups.
+        const nearby = !viewer.selectedEntity || isPerimeterPopup(viewer.selectedEntity) ? entitiesAt(touch ? 21 : 7) : [];
+        const selected = resolveVectorPopupSelection(viewer.selectedEntity, entities, viewer.clock.currentTime, nearby);
         if (selected !== viewer.selectedEntity) viewer.selectedEntity = selected;
       }
       update();
