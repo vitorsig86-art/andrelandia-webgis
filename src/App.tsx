@@ -5,6 +5,7 @@ import { Legend } from "./components/Legend";
 import { MapScale } from "./components/MapScale";
 import { NavigationControls } from "./components/NavigationControls";
 import { MeasurementToolbar } from "./components/MeasurementToolbar";
+import { SurveyAbout } from "./components/SurveyAbout";
 import { VectorPopup } from "./components/VectorPopup";
 
 import { useCesiumViewer } from "./hooks/useCesiumViewer";
@@ -43,7 +44,10 @@ export function App() {
           <span><strong>Cardeal Map</strong><span>Andrelândia - Minas Gerais</span></span>
         </a>
         <span className="header-divider" />
-        <span className="header-context">Andrelândia - Minas Gerais</span>
+        <div className="header-project">
+          <span className="header-context">Andrelândia - Minas Gerais</span>
+          {project.survey && <SurveyAbout survey={project.survey} />}
+        </div>
         <button className="panel-toggle mobile-only" aria-expanded={panelOpen} aria-controls="layer-panel" onClick={() => setPanelOpen(!panelOpen)}>☰ <span>Camadas</span></button>
       </header>
       {panelOpen && <button type="button" className="drawer-backdrop" aria-label="Fechar painel de camadas" onClick={() => setPanelOpen(false)} />}

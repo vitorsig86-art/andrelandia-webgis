@@ -117,6 +117,12 @@ export interface CameraConfig {
   roll: number;
 }
 
+export interface SurveyInfo {
+  title: string;
+  fields: { label: string; value: string }[];
+  quality: string[];
+}
+
 export interface ProjectConfig {
   id: string;
   name: string;
@@ -124,6 +130,7 @@ export interface ProjectConfig {
   bounds: GeographicBounds;
   initialCamera?: CameraConfig;
   layers: ProjectLayerConfig[];
+  survey?: SurveyInfo;
   developmentTools?: { modelAlignment?: boolean; cameraCapture?: boolean };
 }
 

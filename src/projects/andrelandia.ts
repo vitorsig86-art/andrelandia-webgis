@@ -1,3 +1,4 @@
+import { andrelandiaSurvey } from "./andrelandiaSurvey";
 import type { GeographicBounds, ModelClippingConfig, ProjectConfig, ProjectLayerConfig, VectorPopupConfig } from "./types";
 
 export const R2_BASE_URL = "https://pub-7b53e999b0434e53846f72151ecc1995.r2.dev";
@@ -78,6 +79,7 @@ const modelClipping: ModelClippingConfig = {
 
 export const andrelandiaProject: ProjectConfig = {
   id: "andrelandia", name: "Cardeal Map", location: "Andrelândia - Minas Gerais", bounds: ORTHO_BOUNDS,
+  survey: andrelandiaSurvey,
   // Opening and Home share this camera preset. Angles are degrees; height is meters.
   initialCamera: {
     longitude: -44.30957095,

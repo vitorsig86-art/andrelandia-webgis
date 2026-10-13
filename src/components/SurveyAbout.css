@@ -1,0 +1,31 @@
+.header-project { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.survey-about-trigger { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 7px 10px; border: 1px solid #dce4d7; border-radius: 6px; background: #f4f7ef; color: #435c45; font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.survey-about-trigger > span:first-child { font-size: 20px; line-height: 1; }
+.survey-about-trigger:hover { background: #eaf0e2; }
+.survey-about-dialog { box-sizing: border-box; width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; border: 1px solid #dce4d7; border-radius: 12px; background: #fafbf7; color: #21372c; box-shadow: 0 14px 50px #11251f40; }
+.survey-about-dialog[open] { display: flex; flex-direction: column; }
+.survey-about-dialog::backdrop { background: #11251f66; }
+.survey-about-heading { display: flex; align-items: center; gap: 12px; flex-shrink: 0; padding: 14px 18px; border-bottom: 1px solid #dce4d7; }
+.survey-about-heading h2 { margin: 0; font-size: 17px; line-height: 1.4; font-weight: 600; }
+.survey-about-close { flex-shrink: 0; margin-left: auto; width: 44px; height: 44px; border: 1px solid #dce4d7; border-radius: 6px; background: #fff; color: #435c45; font-size: 25px; cursor: pointer; }
+.survey-about-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 18px 22px; font-size: 14px; line-height: 1.55; }
+.survey-about-body dl { margin: 0; }
+.survey-about-body dl > div + div { margin-top: 14px; }
+.survey-about-body dt { font-weight: 600; }
+.survey-about-body dd { margin: 2px 0 0; color: #536353; }
+.survey-about-details { margin-top: 20px; border-top: 1px solid #dce4d7; padding-top: 10px; }
+.survey-about-details summary { padding: 8px 0; font-weight: 600; cursor: pointer; }
+.survey-about-details p { margin: 10px 0; }
+@media (max-width: 760px) {
+  .header-project { flex-shrink: 0; gap: 0; }
+  .survey-about-trigger { width: 44px; height: 44px; padding: 0; border-color: transparent; background: transparent; }
+  .survey-about-trigger-text { display: none; }
+  .app-header:has(.survey-about-trigger) { gap: 6px; }
+  .app-header:has(.survey-about-trigger) .brand { flex: 1; min-width: 0; }
+  .app-header:has(.survey-about-trigger) .brand > span { min-width: 0; }
+  .app-header:has(.survey-about-trigger) .brand > span > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .survey-about-dialog { width: calc(100vw - 20px); max-height: calc(100dvh - 24px); }
+  .survey-about-heading { padding: 10px 14px; }
+  .survey-about-heading h2 { font-size: 16px; }
+  .survey-about-body { padding: 16px; }
+}

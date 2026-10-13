@@ -103,7 +103,7 @@
 /* Compact presentation is opt-in; other external legends keep their layout. */
 .raster-legend.raster-legend-compact {
   width: auto;
-  max-width: 96px;
+  max-width: 112px;
   height: auto;
   padding: 0;
   background: transparent;
@@ -115,7 +115,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  max-height: 300px;
+  max-height: 374px;
   padding: 6px;
   border: 1px solid #21372c26;
   border-radius: 6px;
@@ -133,7 +133,7 @@
   width: auto;
   height: auto;
   max-width: 100%;
-  max-height: max(0px, min(266px, calc(100dvh - var(--header-height) - var(--legend-bottom) - env(safe-area-inset-bottom) - 58px)));
+  max-height: max(0px, min(340px, calc(100dvh - var(--header-height) - var(--legend-bottom) - env(safe-area-inset-bottom) - 58px)));
   object-fit: contain;
 }
 
@@ -145,7 +145,7 @@
     flex-direction: column;
     align-items: flex-end;
     gap: 6px;
-    max-width: 88px;
+    max-width: 104px;
     pointer-events: none;
     cursor: default;
     transition: none;
@@ -153,14 +153,14 @@
 
   .raster-legend-compact-content {
     display: none;
-    max-height: 180px;
+    max-height: 254px;
     pointer-events: auto;
   }
 
   .raster-legend-compact.is-expanded .raster-legend-compact-content { display: flex; }
 
   .raster-legend.raster-legend-compact img {
-    max-height: max(0px, min(146px, calc(100dvh - var(--header-height) - var(--legend-bottom) - env(safe-area-inset-bottom) - 352px)));
+    max-height: max(0px, min(220px, calc(100dvh - var(--header-height) - var(--legend-bottom) - env(safe-area-inset-bottom) - 352px)));
   }
 
   .raster-legend-chip {
