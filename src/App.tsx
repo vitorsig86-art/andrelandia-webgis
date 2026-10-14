@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from "react";
-import { projects } from "./projects";
+import { andrelandiaScenes, projects } from "./projects";
 import { LayerPanel } from "./components/LayerPanel";
 import { Legend } from "./components/Legend";
 import { MapScale } from "./components/MapScale";
@@ -35,6 +35,12 @@ export function App() {
     });
   }
 
+  // A scene only publishes a new visibility set; loading, caching, tile order,
+  // the camera and Home stay on the existing paths.
+  function applyScene(layerIds: string[]) {
+    setVisible(new Set(layerIds));
+  }
+
   return (
     <main className="app-shell">
       <div ref={containerRef} className="map-container" aria-label="Mapa 3D interativo do projeto" />
@@ -45,14 +51,13 @@ export function App() {
         </a>
         <span className="header-divider" />
         <div className="header-project">
-          <span className="header-context">Andrelândia - Minas Gerais</span>
           {project.survey && <SurveyAbout survey={project.survey} />}
         </div>
         <button className="panel-toggle mobile-only" aria-expanded={panelOpen} aria-controls="layer-panel" onClick={() => setPanelOpen(!panelOpen)}>☰ <span>Camadas</span></button>
       </header>
       {panelOpen && <button type="button" className="drawer-backdrop" aria-label="Fechar painel de camadas" onClick={() => setPanelOpen(false)} />}
       <aside id="layer-panel" aria-label="Área de trabalho e camadas" className={`layer-panel ${panelOpen ? "is-open" : ""}`}>
-        <LayerPanel project={project} statuses={statuses} visible={visible} rasterOpacities={rasterOpacities} onOpacityChange={setRasterOpacity} onToggle={toggleLayer} onClose={() => setPanelOpen(false)} />
+        <LayerPanel project={project} statuses={statuses} visible={visible} rasterOpacities={rasterOpacities} onOpacityChange={setRasterOpacity} onToggle={toggleLayer} onClose={() => setPanelOpen(false)} scenes={andrelandiaScenes} onApplyScene={(scene) => applyScene(scene.layerIds)} />
       </aside>
       <NavigationControls viewer={viewer} project={project} disabled={Boolean(error)} />
       <MapScale viewer={viewer} />
