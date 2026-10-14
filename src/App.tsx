@@ -7,6 +7,9 @@ import { NavigationControls } from "./components/NavigationControls";
 import { MeasurementToolbar } from "./components/MeasurementToolbar";
 import { SurveyAbout } from "./components/SurveyAbout";
 import { VectorPopup } from "./components/VectorPopup";
+import { ModeSwitcher, type MapMode } from "./components/ModeSwitcher";
+import { DiagnosticJourney } from "./components/DiagnosticJourney";
+import { andrelandiaDiagnostic } from "./projects/andrelandiaDiagnostic";
 
 import { useCesiumViewer } from "./hooks/useCesiumViewer";
 import { useProjectLayers } from "./hooks/useProjectLayers";
@@ -22,6 +25,8 @@ export function App() {
   const project = projects[0];
   const [visible, setVisible] = useState(() => defaultVisibility(projects[0]));
   const [panelOpen, setPanelOpen] = useState(false);
+  const [mode, setMode] = useState<MapMode>("explore");
+  const [diagnosticStep, setDiagnosticStep] = useState(0);
   const { containerRef, viewer, error } = useCesiumViewer(Boolean(project.developmentTools?.cameraCapture));
   const { statuses, mapWarning, rasterOpacities, setRasterOpacity, getModel } = useProjectLayers(viewer, project, visible);
   const legendLayers = project.layers.filter((layer) => layer.legend && (layer.legendMode ?? "external") === "external" && visible.has(layer.id));
@@ -41,6 +46,19 @@ export function App() {
     setVisible(new Set(layerIds));
   }
 
+  function changeDiagnosticStep(index: number) {
+    const step = andrelandiaDiagnostic[index];
+    if (!step) return;
+    setDiagnosticStep(index);
+    if (step.layerIds) applyScene(step.layerIds);
+  }
+
+  function changeMode(nextMode: MapMode) {
+    if (nextMode === mode) return;
+    setMode(nextMode);
+    if (nextMode === "diagnostic") changeDiagnosticStep(0);
+  }
+
   return (
     <main className="app-shell">
       <div ref={containerRef} className="map-container" aria-label="Mapa 3D interativo do projeto" />
@@ -55,6 +73,13 @@ export function App() {
         </div>
         <button className="panel-toggle mobile-only" aria-expanded={panelOpen} aria-controls="layer-panel" onClick={() => setPanelOpen(!panelOpen)}>☰ <span>Camadas</span></button>
       </header>
+      <ModeSwitcher mode={mode} onChange={changeMode} />
+      {mode === "diagnostic" && <DiagnosticJourney
+        steps={andrelandiaDiagnostic}
+        stepIndex={diagnosticStep}
+        onStepChange={changeDiagnosticStep}
+        onExplore={() => changeMode("explore")}
+      />}
       {panelOpen && <button type="button" className="drawer-backdrop" aria-label="Fechar painel de camadas" onClick={() => setPanelOpen(false)} />}
       <aside id="layer-panel" aria-label="Área de trabalho e camadas" className={`layer-panel ${panelOpen ? "is-open" : ""}`}>
         <LayerPanel project={project} statuses={statuses} visible={visible} rasterOpacities={rasterOpacities} onOpacityChange={setRasterOpacity} onToggle={toggleLayer} onClose={() => setPanelOpen(false)} scenes={andrelandiaScenes} onApplyScene={(scene) => applyScene(scene.layerIds)} />
