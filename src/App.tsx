@@ -4,6 +4,7 @@ import { LayerPanel } from "./components/LayerPanel";
 import { Legend } from "./components/Legend";
 import { MapScale } from "./components/MapScale";
 import { NavigationControls } from "./components/NavigationControls";
+import { WalkModeControl } from "./components/WalkModeControl";
 import { MeasurementToolbar } from "./components/MeasurementToolbar";
 import { SurveyAbout } from "./components/SurveyAbout";
 import { VectorPopup } from "./components/VectorPopup";
@@ -27,9 +28,12 @@ export function App() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [mode, setMode] = useState<MapMode>("explore");
   const [diagnosticStep, setDiagnosticStep] = useState(0);
+  const [walkModeActive, setWalkModeActive] = useState(false);
   const { containerRef, viewer, error } = useCesiumViewer(Boolean(project.developmentTools?.cameraCapture));
   const { statuses, mapWarning, rasterOpacities, setRasterOpacity, getModel } = useProjectLayers(viewer, project, visible);
   const legendLayers = project.layers.filter((layer) => layer.legend && (layer.legendMode ?? "external") === "external" && visible.has(layer.id));
+  const activeModelLayer = project.layers.find((layer) => layer.source.format === "3d-tiles" && visible.has(layer.id));
+  const activeModel = activeModelLayer ? getModel(activeModelLayer.id) : null;
 
   function toggleLayer(id: string) {
     setVisible((current) => {
@@ -84,7 +88,14 @@ export function App() {
       <aside id="layer-panel" aria-label="Área de trabalho e camadas" className={`layer-panel ${panelOpen ? "is-open" : ""}`}>
         <LayerPanel project={project} statuses={statuses} visible={visible} rasterOpacities={rasterOpacities} onOpacityChange={setRasterOpacity} onToggle={toggleLayer} onClose={() => setPanelOpen(false)} scenes={andrelandiaScenes} onApplyScene={(scene) => applyScene(scene.layerIds)} />
       </aside>
-      <NavigationControls viewer={viewer} project={project} disabled={Boolean(error)} />
+      <NavigationControls viewer={viewer} project={project} disabled={Boolean(error) || walkModeActive} />
+      <WalkModeControl
+        viewer={viewer}
+        tileset={activeModel}
+        modelActive={Boolean(activeModelLayer)}
+        disabled={Boolean(error)}
+        onActiveChange={setWalkModeActive}
+      />
       <MapScale viewer={viewer} />
       <MeasurementToolbar viewer={viewer} disabled={Boolean(error)} />
       <VectorPopup viewer={viewer} />
