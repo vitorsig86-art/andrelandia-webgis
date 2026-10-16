@@ -53,11 +53,36 @@ export function WalkModeControl({ viewer, tileset, modelActive, disabled = false
   const unavailable = disabled || !viewer || viewer.isDestroyed() || !tileset || tileset.isDestroyed();
 
   return (
-    <section className={`walk-mode-control ${active ? "is-active" : ""}`} aria-label="Caminhada experimental">
+    <section className={`walk-mode-control ${active ? "is-active" : ""}`} aria-label="Território Interativo">
       <button type="button" onClick={active ? exit : enter} disabled={active ? false : unavailable} aria-pressed={active}>
-        {active ? "Sair" : "Caminhar"}
+        <svg
+          className="walk-mode-icon"
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.9"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="m4 11 16-7-7 16-2-7-7-2Z" />
+          <path d="m11 13 4-4" />
+        </svg>
+        <span>{active ? "Sair da exploração" : "Território Interativo"}</span>
       </button>
-      {active && <p role="status">WASD para mover<br />Mouse para olhar<br />ESC para sair</p>}
+      {active && (
+        <div className="walk-mode-help" role="status">
+          <strong>Território Interativo</strong>
+          <span className="walk-mode-description">Explore o território com o Homem Mapa.</span>
+          <span>
+            WASD para mover
+            <br />
+            Mouse para olhar
+            <br />
+            ESC para sair
+          </span>
+        </div>
+      )}
       {message && <p className="walk-mode-error" role="alert">{message}</p>}
     </section>
   );

@@ -1,11 +1,14 @@
 .walk-mode-control {
   position: absolute;
-  top: calc(var(--header-height) + 246px);
   right: max(24px, env(safe-area-inset-right));
+  bottom: max(72px, calc(env(safe-area-inset-bottom) + 72px));
   z-index: 2;
-  width: 104px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 212px;
   color: #fff;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .app-shell:has(.raster-legend-stack) .walk-mode-control {
@@ -13,36 +16,90 @@
 }
 
 .walk-mode-control button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
   width: 100%;
-  min-height: 36px;
-  padding: 7px 10px;
+  min-height: 48px;
+  padding: 10px 14px;
   color: inherit;
-  border: 1px solid #8fa2b54d;
-  border-radius: 6px;
-  background: #26323de8;
-  box-shadow: 0 2px 10px #0003;
+  border: 1px solid #c5e7a478;
+  border-radius: 10px;
+  background: #183f3b;
+  box-shadow: 0 4px 14px #102a2670;
   font: inherit;
   font-weight: 700;
+  letter-spacing: 0.01em;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
-.walk-mode-control button:hover:not(:disabled) { background: #46596beb; }
-.walk-mode-control button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-.walk-mode-control button:disabled { cursor: not-allowed; opacity: 0.6; }
-.walk-mode-control.is-active button { border-color: #78d8df; background: #235a65ef; }
+.walk-mode-icon {
+  flex: 0 0 auto;
+  width: 19px;
+  height: 19px;
+  color: #c5e7a4;
+}
 
-.walk-mode-control p {
-  margin: 8px 0 0;
-  padding: 8px;
-  border: 1px solid #8fa2b54d;
-  border-radius: 6px;
-  background: #26323df2;
-  box-shadow: 0 2px 10px #0003;
+.walk-mode-control button::after {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #c5e7a4;
+  content: "";
+}
+
+.walk-mode-control button:hover:not(:disabled) { background: #24514c; }
+.walk-mode-control button:active:not(:disabled) { background: #102f2b; }
+.walk-mode-control button:focus-visible { outline: 2px solid #c5e7a4; outline-offset: 3px; }
+.walk-mode-control button:disabled { cursor: not-allowed; opacity: 0.6; }
+.walk-mode-control.is-active button { border-color: #c5e7a4; background: #24514c; }
+
+.walk-mode-help,
+.walk-mode-control .walk-mode-error {
+  order: -1;
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border: 1px solid #c5e7a45c;
+  border-radius: 10px;
+  background: #183f3bf2;
+  box-shadow: 0 4px 14px #102a2652;
   line-height: 1.45;
 }
 
-.walk-mode-control .walk-mode-error { width: 210px; color: #ffd1a1; }
+.walk-mode-help {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.walk-mode-help strong { color: #fff; font-size: 13px; }
+.walk-mode-description { color: #c5e7a4; }
+
+.walk-mode-control .walk-mode-error {
+  width: 210px;
+  color: #ffe1bd;
+  border-color: #ffd1a15c;
+  background: #4a3429f2;
+}
 
 @media (max-width: 760px) {
-  .walk-mode-control { display: none; }
+  .walk-mode-control {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(104px, calc(env(safe-area-inset-bottom) + 104px));
+    width: min(212px, calc(100vw - 24px));
+  }
+
+  .app-shell:has(.raster-legend-stack) .walk-mode-control {
+    right: max(128px, calc(env(safe-area-inset-right) + 128px));
+  }
+
+  .app-shell:has(.diagnostic-journey) .walk-mode-control {
+    top: calc(var(--header-height) + 242px);
+    bottom: auto;
+  }
+
+  .app-shell:has(.layer-panel.is-open) .walk-mode-control { visibility: hidden; }
+  .walk-mode-control button { min-height: 44px; }
 }

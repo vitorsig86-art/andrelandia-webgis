@@ -31,6 +31,10 @@ const WALK_MODE_CONFIG = {
   cameraDistance: 5,
   cameraHeight: 2.5,
   cameraLookAtHeight: 1.15,
+  // Keep the camera just above photogrammetric surfaces when its standard
+  // trailing position would enter them. This is not retained between frames.
+  cameraSurfaceClearance: 0.4,
+  cameraRecoverySpeed: 8,
   idleBobAmplitude: 0.03,
   movingBobAmplitude: 0.05,
   idleBobFrequency: 0.65,
@@ -49,6 +53,7 @@ interface CameraControlState {
   enableZoom: boolean;
   enableTilt: boolean;
   enableLook: boolean;
+  enableCollisionDetection: boolean;
 }
 
 export interface WalkModeSession {
@@ -73,6 +78,7 @@ function readCameraControls(controller: ScreenSpaceCameraController): CameraCont
     enableZoom: controller.enableZoom,
     enableTilt: controller.enableTilt,
     enableLook: controller.enableLook,
+    enableCollisionDetection: controller.enableCollisionDetection,
   };
 }
 
@@ -83,6 +89,7 @@ function restoreCameraControls(controller: ScreenSpaceCameraController, state: C
   controller.enableZoom = state.enableZoom;
   controller.enableTilt = state.enableTilt;
   controller.enableLook = state.enableLook;
+  controller.enableCollisionDetection = state.enableCollisionDetection;
 }
 
 function getTilesetHeight(tileset: Cesium3DTileset, cartographic: Cartographic, viewer: Viewer): number | undefined {
@@ -164,6 +171,10 @@ export function createWalkMode(viewer: Viewer, tileset: Cesium3DTileset, options
   let renderedAvatarPosition = currentPosition;
   let lastHeightSampleAt = performance.now();
   let lastSuccessfulMoveAt = -Infinity;
+  let cameraSurfaceLift = 0;
+  let targetCameraSurfaceLift = 0;
+  let lastCameraUpdateAt = performance.now();
+  let lastCameraSurfaceSampleAt = -Infinity;
   let looking = false;
   let frameId: number | undefined;
   let disposed = false;
@@ -252,18 +263,46 @@ export function createWalkMode(viewer: Viewer, tileset: Cesium3DTileset, options
     );
   }
 
-  function updateCamera(): void {
+  function getCameraSurfaceLift(destination: Cartesian3): number {
+    const cartographic = Cartographic.fromCartesian(destination, viewer.scene.globe.ellipsoid);
+    if (!cartographic) return 0;
+    const surfaceHeight = getTilesetHeight(tileset, cartographic, viewer);
+    if (surfaceHeight === undefined) return 0;
+    return Math.max(0, surfaceHeight + WALK_MODE_CONFIG.cameraSurfaceClearance - cartographic.height);
+  }
+
+  function updateCamera(timestamp: number): void {
     if (viewer.isDestroyed()) return;
     const forwardEast = Math.sin(heading);
     const forwardNorth = Math.cos(heading);
-    const cameraHeight = WALK_MODE_CONFIG.cameraLookAtHeight - Math.tan(pitch) * WALK_MODE_CONFIG.cameraDistance;
     const enu = Transforms.eastNorthUpToFixedFrame(renderedAvatarPosition);
+    const standardDestination = Matrix4.multiplyByPoint(
+      enu,
+      new Cartesian3(
+        -forwardEast * WALK_MODE_CONFIG.cameraDistance,
+        -forwardNorth * WALK_MODE_CONFIG.cameraDistance,
+        WALK_MODE_CONFIG.cameraHeight,
+      ),
+      new Cartesian3(),
+    );
+    // getHeight performs a mesh ray query. Sampling at the same 20 Hz cadence
+    // as avatar surface tracking keeps the render loop responsive.
+    if (timestamp - lastCameraSurfaceSampleAt >= HEIGHT_SAMPLE_INTERVAL_MS) {
+      targetCameraSurfaceLift = getCameraSurfaceLift(standardDestination);
+      lastCameraSurfaceSampleAt = timestamp;
+    }
+    const elapsedSeconds = Math.min(Math.max(0, timestamp - lastCameraUpdateAt) / 1000, 0.1);
+    lastCameraUpdateAt = timestamp;
+    // Raise immediately to avoid entering the mesh; only recovery is eased.
+    cameraSurfaceLift = targetCameraSurfaceLift >= cameraSurfaceLift
+      ? targetCameraSurfaceLift
+      : Math.max(targetCameraSurfaceLift, cameraSurfaceLift - WALK_MODE_CONFIG.cameraRecoverySpeed * elapsedSeconds);
     const destination = Matrix4.multiplyByPoint(
       enu,
       new Cartesian3(
         -forwardEast * WALK_MODE_CONFIG.cameraDistance,
         -forwardNorth * WALK_MODE_CONFIG.cameraDistance,
-        cameraHeight,
+        WALK_MODE_CONFIG.cameraHeight + cameraSurfaceLift,
       ),
       new Cartesian3(),
     );
@@ -319,7 +358,7 @@ export function createWalkMode(viewer: Viewer, tileset: Cesium3DTileset, options
     }
     attemptMove(timestamp);
     updateAvatarPose(timestamp);
-    updateCamera();
+    updateCamera(timestamp);
     viewer.scene.requestRender();
     frameId = window.requestAnimationFrame(animate);
   }
@@ -361,11 +400,14 @@ export function createWalkMode(viewer: Viewer, tileset: Cesium3DTileset, options
 
   viewer.camera.cancelFlight();
   controller.enableInputs = false;
+  // We set an absolute camera destination each frame. Do not let the default
+  // controller overwrite it with an unrelated terrain/tileset collision.
+  controller.enableCollisionDetection = false;
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
   window.addEventListener("blur", clearInputState);
   updateAvatarPose(performance.now());
-  updateCamera();
+  updateCamera(performance.now());
   viewer.scene.requestRender();
   frameId = window.requestAnimationFrame(animate);
 
