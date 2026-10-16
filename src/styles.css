@@ -13,17 +13,16 @@ button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid
 .brand strong { font-size: 15px; letter-spacing: 3px; }
 .brand span span { font-size: 11px; color: #657267; letter-spacing: 1px; }
 .header-divider { height: 25px; width: 1px; background: #dde4d9; }
-.header-context { color: #69766d; font-size: 12px; }
 .layer-panel { position: absolute; inset: var(--header-height) auto 0 0; width: var(--panel-width); background: #fafbf7; padding: 30px 22px 22px; display: flex; flex-direction: column; overflow-y: auto; border-right: 1px solid #dde4d9; z-index: 2; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 27px; }
 .field-label { font-size: 12px; font-weight: 600; margin-bottom: 9px; }
 select { width: 100%; min-height: 44px; border: 1px solid #d7dfd3; border-radius: 7px; padding: 0 10px; color: #274a36; background: #fff; font-size: 12px; }
-.location { font-size: 11px; color: #768072; margin: 11px 0 32px; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; }
 h2 { font-size: 15px; margin: 0; font-weight: 600; }
 .section-heading > span { font-size: 10px; padding: 4px 8px; background: #eaf0e3; border-radius: 4px; color: #577345; }
 .section-description { font-size: 11px; color: #7a8578; margin: 9px 0 18px; }
 .layer-list { display: flex; flex-direction: column; gap: 10px; }
+.layer-list[hidden] { display: none; }
 .layer-card { display: flex; align-items: center; gap: 11px; padding: 15px 12px; border: 1px solid #e0e5db; border-radius: 8px; background: #fff; }
 .layer-card.is-active { border-color: #b6c9a7; background: #f3f7ed; }
 .layer-card input { accent-color: #426539; width: 16px; height: 16px; margin: 1px 0; flex-shrink: 0; }
@@ -46,7 +45,7 @@ h2 { font-size: 15px; margin: 0; font-weight: 600; }
   .brand { min-width: 0; gap: 7px; }
   .brand strong { font-size: 13px; }
   .brand img { width: 33px; height: 33px; }
-  .header-divider, .header-context { display: none; }
+  .header-divider { display: none; }
   .mobile-only { display: inline-flex; }
   .panel-toggle { margin-left: auto; flex-shrink: 0; align-items: center; gap: 6px; min-height: 44px; padding: 0 9px; border: 1px solid #d7dfd3; border-radius: 6px; color: #365539; background: white; font-size: 12px; touch-action: manipulation; }
   .map-container { left: 0; }
